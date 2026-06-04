@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""
+溢价率监控告警脚本
+读取环境变量 FUND_SYMBOLS 和 BARK_KEY，检查各基金最新溢价率是否进入买入区间，满足条件则推送 Bark 通知。
+
+用法:
+    export FUND_SYMBOLS=513870,513100,513500
+    export BARK_KEY=your_key_here
+    python fund_alert.py                         # 正常执行
+    python fund_alert.py --dry-run               # 仅打印，不推送
+    python fund_alert.py --force                 # 忽略阈值，强制推送（测链路用）
+"""
+
+import argparse
+import os
+import sys
+from datetime import datetime, timedelta
+
+import pandas as pd
+import requests
+
+from fund_premium_analyzer import (
+    get_fund_name,
+    get_market_price,
+    get_nav,
+    calculate_premium,
+)
+
+
+def check_and_alert(
+    symbols: list[str],
+    days: int,
+    bark_key: str,
+    dry_run: bool = False,
+    force: bool = False,
+):
+    end_date = datetime.now().strftime("%Y%m%d")
+    start_date = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d")
+
+    alerts = []
+
+    for symbol in symbols:
+        symbol = symbol.strip()
+        if not symbol:
+            continue
+
+        print(f"\n{'='*40}")
+        print(f"检查: {symbol}")
+        print(f"{'='*40}")
+
+        try:
+            name = get_fund_name(symbol)
+            print(f"基金名称: {name}")
+
+            market = get_market_price(symbol, start_date, end_date)
+            if market.empty:
+                print(f"  ⚠ 无市场价数据，跳过")
+                continue
+
+            nav = get_nav(symbol)
+            start_dt = pd.to_datetime(start_date)
+            end_dt = pd.to_datetime(end_date)
+            nav = nav[(nav["日期"] >= start_dt) & (nav["日期"] <= end_dt)]
+
+            df = calculate_premium(market, nav)
+            if df.empty:
+                print(f"  ⚠ 合并后无数据，跳过")
+                continue
+
+            latest = df.iloc[-1]
+            latest_date = latest["日期"].strftime("%Y-%m-%d")
+            latest_premium = latest["溢价率(%)"]
+            latest_price = latest["市场价"]
+            latest_nav = latest["单位净值"]
+
+            pr = df["溢价率(%)"]
+            mean = pr.mean()
+            std = pr.std()
+            threshold = mean - std  # 买入区间：溢价率 < 均值-标准差
+
+            print(f"  最新日期: {latest_date}")
+            print(f"  最新溢价率: {latest_premium:.3f}%")
+            print(f"  均值: {mean:.3f}%")
+            print(f"  标准差: {std:.3f}%")
+            print(f"  买入阈值(均值-标准差): {threshold:.3f}%")
+
+            if force or latest_premium < threshold:
+                print(f"  ✅ 触发条件! 溢价率 {latest_premium:.3f}% < {threshold:.3f}%")
+                alerts.append({
+                    "symbol": symbol,
+                    "name": name,
+                    "date": latest_date,
+                    "premium": latest_premium,
+                    "price": latest_price,
+                    "nav": latest_nav,
+                    "mean": mean,
+                    "std": std,
+                    "threshold": threshold,
+                })
+            else:
+                print(f"  ℹ 未触发 (溢价率 {latest_premium:.3f}% >= {threshold:.3f}%)")
+
+        except Exception as e:
+            print(f"  ❌ 检查 {symbol} 时出错: {e}")
+            continue
+
+    if not alerts:
+        print(f"\n{'='*40}")
+        print("今日无基金触发买入条件")
+        print(f"{'='*40}")
+        return
+
+    if dry_run:
+        print(f"\n{'='*40}")
+        print(f"待推送通知 (DRY RUN - 未实际发送)")
+        print(f"{'='*40}")
+        for a in alerts:
+            print(f"  {a['name']}({a['symbol']}) 最新溢价率: {a['premium']:.3f}%")
+            print(f"    日期: {a['date']}  市场价: {a['price']:.3f}  净值: {a['nav']:.4f}")
+            print(f"    阈值: {a['threshold']:.3f}% (均值 {a['mean']:.3f}% - 标准差 {a['std']:.3f}%)")
+            print()
+        return
+
+    if not bark_key:
+        print(f"\n❌ BARK_KEY 未配置，无法推送通知")
+        print("请在 GitHub 仓库 Settings > Secrets > Actions 中添加 BARK_KEY")
+        sys.exit(1)
+
+    print(f"\n{'='*40}")
+    print(f"推送 Bark 通知...")
+    print(f"{'='*40}")
+
+    title = "🟢 基金溢价率买入提醒"
+    lines = []
+    for a in alerts:
+        lines.append(
+            f"{a['name']}({a['symbol']}) 溢价率 {a['premium']:.2f}%  |  "
+            f"市场价 {a['price']:.3f}  净值 {a['nav']:.4f}"
+        )
+    body = "\n".join(lines)
+
+    try:
+        resp = requests.post(
+            f"https://api.day.app/{bark_key}",
+            json={
+                "title": title,
+                "body": body,
+                "group": "基金溢价率",
+                "sound": "push.cat",
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        print(f"  ✅ 推送成功: {resp.json()}")
+    except Exception as e:
+        print(f"  ❌ 推送失败: {e}")
+        sys.exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="基金溢价率监控告警")
+    parser.add_argument("--dry-run", action="store_true", help="仅打印结果，不推送通知")
+    parser.add_argument("--force", action="store_true", help="忽略阈值，强制推送（用于测试链路）")
+    args = parser.parse_args()
+
+    symbols_str = os.environ.get("FUND_SYMBOLS", "513870")
+    symbols = [s.strip() for s in symbols_str.split(",") if s.strip()]
+    bark_key = os.environ.get("BARK_KEY", "")
+
+    if not symbols:
+        print("❌ 未配置 FUND_SYMBOLS 环境变量")
+        sys.exit(1)
+
+    if args.dry_run:
+        print(f"🔍 DRY RUN 模式 - 仅打印，不推送\n")
+    elif args.force:
+        print(f"💪 FORCE 模式 - 强制推送（忽略阈值）\n")
+
+    check_and_alert(symbols, days=365, bark_key=bark_key, dry_run=args.dry_run, force=args.force)
+
+
+if __name__ == "__main__":
+    main()

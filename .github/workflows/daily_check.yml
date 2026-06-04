@@ -1,0 +1,36 @@
+name: 溢价率监控
+
+on:
+  schedule:
+    # 北京时间 09:30 = UTC 01:30，周一到周五
+    - cron: '30 1 * * 1-5'
+  workflow_dispatch:  # 支持手动触发（用于测试）
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - run: pip install akshare pandas matplotlib numpy requests
+
+      - name: 检查溢价率并推送通知
+        run: python fund_alert.py
+        env:
+          FUND_SYMBOLS: ${{ vars.FUND_SYMBOLS }}
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+
+      - name: 同步缓存到仓库
+        run: |
+          git config user.name "fund-alert-bot"
+          git config user.email "bot@fund-alert"
+          git add fund_cache/
+          git diff --staged --quiet || \
+            (git commit -m "chore: update cache [skip ci]" && git push)

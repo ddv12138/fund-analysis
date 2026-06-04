@@ -23,7 +23,10 @@ import fund_premium_analyzer
 import us_index
 
 plt.rcParams["font.sans-serif"] = [
-    "Songti SC", "Heiti TC", "PingFang HK", "Arial Unicode MS",
+    "Noto Sans CJK JP", "Noto Sans CJK SC", "Noto Sans CJK",
+    "Songti SC", "Heiti TC", "PingFang HK",
+    "WenQuanYi Micro Hei", "SimHei", "Microsoft YaHei",
+    "Arial Unicode MS",
 ]
 plt.rcParams["axes.unicode_minus"] = False
 

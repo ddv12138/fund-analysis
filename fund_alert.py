@@ -27,12 +27,14 @@ from fund_premium_analyzer import (
 
 
 def premium_status(premium: float, mean: float, std: float) -> str:
-    if premium < mean - std:
-        return "✅ 可买入"
-    elif premium > mean + std:
+    upper = min(mean + std, mean * 1.5)
+    lower = max(mean - std, 0)
+    if premium < lower:
+        return "✅ 低估区间"
+    elif premium > upper:
         return "❌ 溢价偏高"
     else:
-        return "⚠️ 正常波动"
+        return "✅ 适合买入(均值±σ)"
 
 
 def check_and_report(

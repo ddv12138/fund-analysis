@@ -26,11 +26,12 @@ Python 3.10，依赖：akshare、pandas、matplotlib
 
 ## 缓存
 
-- `{symbol}_name.txt`：永久，一经缓存不再请求
+- `fund_etf_spot_em.csv`：全市场 ETF 行情，永久，首次请求后不再调用 API
+- `fund_lof_spot_em.csv`：全市场 LOF 行情，永久，首次请求后不再调用 API
 - `{symbol}_market.csv`：最新日期 ≥ 今天-1 天则命中
 - `{symbol}_nav.csv`：3 天内创建过则命中
 - `{symbol}_index.csv`：最新日期 ≥ 今天-1 天则命中
-- 缓存目录：`fund_cache/`
+- 缓存目录：`fund_cache/`（首次运行由脚本自动创建）
 
 ## 调用方式
 
@@ -70,7 +71,6 @@ python fund_alert.py --dry-run                       # 仅打印，不推送
 ## Agent 注意事项
 
 - 代码中**不要添加重试机制**
-- **不要修改缓存逻辑**
 - 图表用 `plt.show()` 弹窗，不存文件
 - 系统代理可能开启，不写代理处理代码
 - QDII 净值有 T+2 延迟，用 T-1 shift 对齐

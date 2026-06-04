@@ -29,32 +29,47 @@ CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fund_cache
 
 
 def get_fund_name(symbol: str) -> str:
-    """获取基金名称（带本地缓存）"""
-    cache_file = os.path.join(CACHE_DIR, f"{symbol}_name.txt")
-    if os.path.exists(cache_file):
-        with open(cache_file, "r") as f:
-            name = f.read().strip()
-            if name:
-                return name
-    name = symbol
+    """获取基金名称（全量缓存 ETF/LOF 行情数据）"""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    etf_file = os.path.join(CACHE_DIR, "fund_etf_spot_em.csv")
+    lof_file = os.path.join(CACHE_DIR, "fund_lof_spot_em.csv")
+
+    def _find_name(df: pd.DataFrame) -> str | None:
+        row = df[df["代码"] == symbol]
+        return row.iloc[0]["名称"] if not row.empty else None
+
+    # 优先从缓存的全量数据中查找
+    if os.path.exists(etf_file):
+        df = pd.read_csv(etf_file, dtype={"代码": str})
+        name = _find_name(df)
+        if name:
+            return name
+    if os.path.exists(lof_file):
+        df = pd.read_csv(lof_file, dtype={"代码": str})
+        name = _find_name(df)
+        if name:
+            return name
+
+    # 请求 API 并缓存全量结果
     try:
         df = ak.fund_etf_spot_em()
-        row = df[df["代码"] == symbol]
-        if not row.empty:
-            name = row.iloc[0]["名称"]
+        df["代码"] = df["代码"].astype(str)
+        df.to_csv(etf_file, index=False)
+        name = _find_name(df)
+        if name:
+            return name
     except Exception:
         pass
     try:
         df = ak.fund_lof_spot_em()
-        row = df[df["代码"] == symbol]
-        if not row.empty:
-            name = row.iloc[0]["名称"]
+        df["代码"] = df["代码"].astype(str)
+        df.to_csv(lof_file, index=False)
+        name = _find_name(df)
+        if name:
+            return name
     except Exception:
         pass
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    with open(cache_file, "w") as f:
-        f.write(name)
-    return name
+    return symbol
 
 
 def get_market_price(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:

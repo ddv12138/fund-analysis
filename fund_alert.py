@@ -139,8 +139,7 @@ def check_and_report(
             json={
                 "title": title,
                 "body": body,
-                "group": "基金溢价率",
-                "sound": "push.cat",
+                "group": "基金日报",
             },
             timeout=10,
         )

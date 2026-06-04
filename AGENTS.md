@@ -6,7 +6,7 @@
 conda activate fund-analysis
 ```
 
-Python 3.10，依赖：akshare、pandas、matplotlib
+Python 3.10，依赖：akshare、pandas、matplotlib、numpy
 
 ## 文件清单
 
@@ -15,6 +15,7 @@ Python 3.10，依赖：akshare、pandas、matplotlib
 | fund_premium_analyzer.py | 场内基金溢价率分析 |
 | us_index.py | 美股指数历史行情（纳指/标普等） |
 | us_index_compare.py | 基金 vs 指数归一化对比 |
+| fund_alert.py | 溢价率监控告警（邮件推送） |
 | fund_cache/ | API 响应缓存（所有脚本共用） |
 | AGENTS.md | 本文件 |
 
@@ -75,9 +76,11 @@ python fund_alert.py --dry-run                       # 仅打印，不推送
 ## Agent 注意事项
 
 - 代码中**不要添加重试机制**
-- 图表用 `plt.show()` 弹窗，不存文件
+- `create_premium_figure()` 用 `Agg` 后台渲染（不弹窗）；`show_chart()` 仍用 `plt.show()` 弹窗
+- 邮件发送用 `smtplib` 内嵌 base64 图表，不依赖外部库
 - 系统代理可能开启，不写代理处理代码
 - QDII 净值有 T+2 延迟，用 T-1 shift 对齐
 - 缓存数据时保存全部列，不裁剪子集
+- 秘密从环境变量读取，不硬编码
 - 修改前先读本文件
 - 图表横坐标用 `AutoDateLocator` + `AutoDateFormatter`，不写死 `MonthLocator`

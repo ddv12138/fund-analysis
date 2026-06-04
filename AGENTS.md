@@ -53,18 +53,22 @@ python us_index_compare.py 365 513100 513500         # 两个基金
 python us_index_compare.py 180 513500 --no-chart     # 仅打印表格
 
 # 溢价率监控告警（配合 GitHub Actions 定时执行）
-python fund_alert.py                                 # 需设置 FUND_SYMBOLS 和 BARK_KEY 环境变量
+python fund_alert.py                                 # 需设置 SMTP 等环境变量
 python fund_alert.py --dry-run                       # 仅打印，不推送
 ```
 
 ## GitHub Actions 定时任务
 
-每天早上 9:30（北京时间，周一至周五）自动执行 `fund_alert.py`，检查各基金最新溢价率并推送 Bark 日报，每条基金附带买入区间建议。
+每天早上 9:30（北京时间，周一至周五）自动执行 `fund_alert.py`，检查各基金最新溢价率并推送邮件日报（含溢价率趋势图），每条基金附带买入区间建议。
 
 | 配置项 | 位置 | 说明 |
 |--------|------|------|
 | `FUND_SYMBOLS` | GitHub > Settings > Variables > Actions | 监控的基金列表，逗号分隔，如 `513870,513100,513500` |
-| `BARK_KEY` | GitHub > Settings > Secrets > Actions | Bark 推送 Key |
+| `SMTP_HOST` | GitHub > Settings > Secrets > Actions | SMTP 服务器，如 `smtp.qq.com` |
+| `SMTP_PORT` | GitHub > Settings > Secrets > Actions | SMTP 端口，如 `465` |
+| `SMTP_USER` | GitHub > Settings > Secrets > Actions | 发件邮箱地址 |
+| `SMTP_PASS` | GitHub > Settings > Secrets > Actions | SMTP 授权码（QQ 邮箱需生成授权码） |
+| `MAIL_TO` | GitHub > Settings > Secrets > Actions | 收件邮箱，多个用逗号分隔 |
 
 执行后自动将 `fund_cache/` 中的缓存数据 commit 回仓库，避免重复拉取。
 

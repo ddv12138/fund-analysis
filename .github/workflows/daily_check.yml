@@ -19,13 +19,17 @@ jobs:
         with:
           python-version: '3.10'
 
-      - run: pip install akshare pandas matplotlib numpy requests
+      - run: pip install akshare pandas matplotlib numpy
 
       - name: 检查溢价率并推送通知
         run: python fund_alert.py
         env:
           FUND_SYMBOLS: ${{ vars.FUND_SYMBOLS }}
-          BARK_KEY: ${{ secrets.BARK_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
 
       - name: 同步缓存到仓库
         run: |

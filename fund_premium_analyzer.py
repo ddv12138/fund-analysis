@@ -147,8 +147,8 @@ def calculate_premium(market: pd.DataFrame, nav: pd.DataFrame) -> pd.DataFrame:
     return merged
 
 
-def show_chart(df: pd.DataFrame, symbol: str):
-    """弹出窗口展示溢价率趋势图"""
+def create_premium_figure(df: pd.DataFrame) -> plt.Figure:
+    """生成溢价率趋势图，返回 Figure 对象（不弹窗）"""
     pr = df["溢价率(%)"]
     mean = pr.mean()
     dates = df["日期"]
@@ -162,16 +162,13 @@ def show_chart(df: pd.DataFrame, symbol: str):
     upper = mean + std
     lower = mean - std
 
-    # 背景色带
     ax.axhspan(pr_max, upper, color="#ffcccc", alpha=0.3)
     ax.axhspan(upper, lower, color="#ccffcc", alpha=0.3)
     ax.axhspan(lower, pr_min, color="#66cc66", alpha=0.3)
 
-    # 边界值标记（右边缘）
     ax.text(dates.max(), upper, f" {upper:.2f}%", va="center", ha="left", fontsize=9, color="#888888")
     ax.text(dates.max(), lower, f" {lower:.2f}%", va="center", ha="left", fontsize=9, color="#888888")
 
-    # 图例
     legend_elements = [
         Patch(facecolor="#ffcccc", alpha=0.5, label="> 均值+σ"),
         Patch(facecolor="#ccffcc", alpha=0.5, label="均值±σ (适合买入)"),
@@ -179,19 +176,34 @@ def show_chart(df: pd.DataFrame, symbol: str):
     ]
     ax.legend(handles=legend_elements, loc="upper left", fontsize=8, framealpha=0.9)
 
-    # 溢价率折线
     ax.plot(dates, pr, color="#1f77b4", linewidth=1.2)
 
-    # 参考线
     ax.axhline(y=mean, color="#ff7f0e", linestyle="--", linewidth=0.8)
     ax.text(dates.max(), mean, f" 均值 {mean:.2f}%", va="center", ha="left", fontsize=9, color="#ff7f0e")
     ax.axhline(y=upper, color="#ff7f0e", linestyle=":", linewidth=0.5)
     ax.axhline(y=lower, color="#ff7f0e", linestyle=":", linewidth=0.5)
-    # 当前值标记
     ax.axhline(y=latest, color="#d62728", linestyle="--", linewidth=0.6)
     ax.text(dates.max(), latest, f" 当前 {latest:.2f}%", va="center", ha="left", fontsize=9, color="#d62728")
 
-    # 鼠标指示线
+    ax.grid(True, alpha=0.2)
+    ax.set_xlim(dates.min(), dates.max())
+    locator = mdates.AutoDateLocator()
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(mdates.AutoDateFormatter(locator))
+    ax.tick_params(axis="x", rotation=45)
+    plt.tight_layout()
+    return fig
+
+
+def show_chart(df: pd.DataFrame, symbol: str):
+    """弹出窗口展示溢价率趋势图（交互式）"""
+    pr = df["溢价率(%)"]
+    dates = df["日期"]
+    mean = pr.mean()
+    std = pr.std()
+    fig = create_premium_figure(df)
+    ax = fig.axes[0]
+
     vline = ax.axvline(x=dates.iloc[0], color="gray", linewidth=0.8, ls="--", alpha=0.6, visible=False)
     hline = ax.axhline(y=pr.iloc[0], color="gray", linewidth=0.8, ls="--", alpha=0.6, visible=False)
     label = ax.text(0, 0, "", fontsize=9, color="gray", visible=False,
@@ -218,14 +230,6 @@ def show_chart(df: pd.DataFrame, symbol: str):
         fig.canvas.draw_idle()
 
     fig.canvas.mpl_connect("motion_notify_event", _on_move)
-
-    ax.grid(True, alpha=0.2)
-    ax.set_xlim(dates.min(), dates.max())
-    locator = mdates.AutoDateLocator()
-    ax.xaxis.set_major_locator(locator)
-    ax.xaxis.set_major_formatter(mdates.AutoDateFormatter(locator))
-    ax.tick_params(axis="x", rotation=45)
-    plt.tight_layout()
     plt.show()
     plt.close()
     print(f"  均值: {mean:.2f}%  |  溢价率范围: {pr.min():.2f}% ~ {pr.max():.2f}%")

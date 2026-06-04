@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
 溢价率监控告警脚本
-读取环境变量 FUND_SYMBOLS 和 BARK_KEY，检查各基金最新溢价率是否进入买入区间，满足条件则推送 Bark 通知。
+读取环境变量 FUND_SYMBOLS 和 BARK_KEY，检查各基金溢价率数据并推送 Bark 通知。
 
 用法:
     export FUND_SYMBOLS=513870,513100,513500
     export BARK_KEY=your_key_here
     python fund_alert.py                         # 正常执行
     python fund_alert.py --dry-run               # 仅打印，不推送
-    python fund_alert.py --force                 # 忽略阈值，强制推送（测链路用）
 """
 
 import argparse
@@ -27,17 +26,26 @@ from fund_premium_analyzer import (
 )
 
 
-def check_and_alert(
+def premium_status(premium: float, mean: float, std: float) -> str:
+    if premium < mean - std:
+        return "✅ 可买入"
+    elif premium > mean + std:
+        return "❌ 溢价偏高"
+    else:
+        return "⚠️ 正常波动"
+
+
+def check_and_report(
     symbols: list[str],
     days: int,
     bark_key: str,
     dry_run: bool = False,
-    force: bool = False,
 ):
     end_date = datetime.now().strftime("%Y%m%d")
     start_date = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d")
 
-    alerts = []
+    report_lines = []
+    any_error = False
 
     for symbol in symbols:
         symbol = symbol.strip()
@@ -76,49 +84,44 @@ def check_and_alert(
             pr = df["溢价率(%)"]
             mean = pr.mean()
             std = pr.std()
-            threshold = mean - std  # 买入区间：溢价率 < 均值-标准差
+            buy_threshold = mean - std
+
+            status_icon = premium_status(latest_premium, mean, std)
 
             print(f"  最新日期: {latest_date}")
             print(f"  最新溢价率: {latest_premium:.3f}%")
-            print(f"  均值: {mean:.3f}%")
-            print(f"  标准差: {std:.3f}%")
-            print(f"  买入阈值(均值-标准差): {threshold:.3f}%")
+            print(f"  均值: {mean:.3f}%  |  标准差: {std:.3f}%")
+            print(f"  买入区间(均值-标准差): < {buy_threshold:.3f}%")
+            print(f"  状态: {status_icon}")
 
-            if force or latest_premium < threshold:
-                print(f"  ✅ 触发条件! 溢价率 {latest_premium:.3f}% < {threshold:.3f}%")
-                alerts.append({
-                    "symbol": symbol,
-                    "name": name,
-                    "date": latest_date,
-                    "premium": latest_premium,
-                    "price": latest_price,
-                    "nav": latest_nav,
-                    "mean": mean,
-                    "std": std,
-                    "threshold": threshold,
-                })
-            else:
-                print(f"  ℹ 未触发 (溢价率 {latest_premium:.3f}% >= {threshold:.3f}%)")
+            report_lines.append(
+                f"{name}({symbol})\n"
+                f"溢价率 {latest_premium:.2f}% {status_icon}\n"
+                f"买入区间: < {buy_threshold:.2f}%  "
+                f"(均值 {mean:.2f}% - 标准差 {std:.2f}%)\n"
+            )
 
         except Exception as e:
             print(f"  ❌ 检查 {symbol} 时出错: {e}")
+            any_error = True
             continue
 
-    if not alerts:
+    if not report_lines:
         print(f"\n{'='*40}")
-        print("今日无基金触发买入条件")
+        print("所有基金均无数据")
         print(f"{'='*40}")
         return
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    title = f"📊 基金溢价率日报 ({today})"
+    body = "\n".join(report_lines)
 
     if dry_run:
         print(f"\n{'='*40}")
         print(f"待推送通知 (DRY RUN - 未实际发送)")
         print(f"{'='*40}")
-        for a in alerts:
-            print(f"  {a['name']}({a['symbol']}) 最新溢价率: {a['premium']:.3f}%")
-            print(f"    日期: {a['date']}  市场价: {a['price']:.3f}  净值: {a['nav']:.4f}")
-            print(f"    阈值: {a['threshold']:.3f}% (均值 {a['mean']:.3f}% - 标准差 {a['std']:.3f}%)")
-            print()
+        print(f"标题: {title}")
+        print(f"内容:\n{body}")
         return
 
     if not bark_key:
@@ -129,15 +132,6 @@ def check_and_alert(
     print(f"\n{'='*40}")
     print(f"推送 Bark 通知...")
     print(f"{'='*40}")
-
-    title = "🟢 基金溢价率买入提醒"
-    lines = []
-    for a in alerts:
-        lines.append(
-            f"{a['name']}({a['symbol']}) 溢价率 {a['premium']:.2f}%  |  "
-            f"市场价 {a['price']:.3f}  净值 {a['nav']:.4f}"
-        )
-    body = "\n".join(lines)
 
     try:
         resp = requests.post(
@@ -151,7 +145,7 @@ def check_and_alert(
             timeout=10,
         )
         resp.raise_for_status()
-        print(f"  ✅ 推送成功: {resp.json()}")
+        print(f"  ✅ 推送成功")
     except Exception as e:
         print(f"  ❌ 推送失败: {e}")
         sys.exit(1)
@@ -160,7 +154,6 @@ def check_and_alert(
 def main():
     parser = argparse.ArgumentParser(description="基金溢价率监控告警")
     parser.add_argument("--dry-run", action="store_true", help="仅打印结果，不推送通知")
-    parser.add_argument("--force", action="store_true", help="忽略阈值，强制推送（用于测试链路）")
     args = parser.parse_args()
 
     symbols_str = os.environ.get("FUND_SYMBOLS", "513870")
@@ -173,10 +166,8 @@ def main():
 
     if args.dry_run:
         print(f"🔍 DRY RUN 模式 - 仅打印，不推送\n")
-    elif args.force:
-        print(f"💪 FORCE 模式 - 强制推送（忽略阈值）\n")
 
-    check_and_alert(symbols, days=365, bark_key=bark_key, dry_run=args.dry_run, force=args.force)
+    check_and_report(symbols, days=365, bark_key=bark_key, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":

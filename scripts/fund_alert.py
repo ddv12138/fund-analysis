@@ -27,6 +27,10 @@ from fund_analysis.data.index import get_index_data
 from fund_analysis.data.us_stock import get_vix_data
 from fund_analysis.analysis.premium import calculate_premium, premium_status
 from fund_analysis.analysis.drawdown import calculate_drawdown, drawdown_status, vix_status
+from fund_analysis.analysis.rating import (
+    rank_score, parse_scale, parse_total_fee, parse_est_date,
+    score_premium, calculate_rating,
+)
 from fund_analysis.plotting.premium_chart import create_premium_figure
 from fund_analysis.plotting.drawdown_chart import create_drawdown_figure
 from fund_analysis.utils.mail_utils import fig_to_base64, read_smtp_config_from_env, send_mail
@@ -197,7 +201,70 @@ def main():
     except Exception as e:
         print(f"  ⚠ 纳指100分析失败: {e}")
 
-    html = build_html_report(results) + ndx_html
+    print(f"\n{'='*40}")
+    print("生成基金评级排名")
+    print(f"{'='*40}")
+
+    rating_html = ""
+    try:
+        rating_records = []
+        for r in results:
+            ov = r.get("overview", {})
+            rating_records.append({
+                "name": r["name"],
+                "symbol": r["symbol"],
+                "scale_val": parse_scale(ov.get("净资产规模", "")),
+                "fee_val": parse_total_fee(ov.get("管理费率", ""), ov.get("托管费率", "")),
+                "est_str": parse_est_date(ov.get("成立日期/规模", "")),
+                "premium": r["premium"],
+                "mean": r["mean"],
+                "std": r["std"],
+            })
+
+        scale_scores = rank_score([x["scale_val"] for x in rating_records], reverse=True)
+        fee_scores = rank_score([x["fee_val"] for x in rating_records], reverse=False)
+        est_scores = rank_score([x["est_str"] for x in rating_records], reverse=False)
+        premium_scores = [score_premium(x["premium"], x["mean"], x["std"]) for x in rating_records]
+
+        for i, x in enumerate(rating_records):
+            x["total"] = calculate_rating(scale_scores[i], est_scores[i], fee_scores[i], premium_scores[i])
+            x["scale_score"] = scale_scores[i]
+            x["fee_score"] = fee_scores[i]
+            x["est_score"] = est_scores[i]
+            x["premium_score"] = premium_scores[i]
+
+        rating_records.sort(key=lambda x: x["total"], reverse=True)
+
+        rows_html = []
+        for x in rating_records:
+            s_star = "★" * x["scale_score"] + "☆" * (5 - x["scale_score"])
+            f_star = "★" * x["fee_score"] + "☆" * (5 - x["fee_score"])
+            rows_html.append(f"""<tr>
+<td style="padding:3px 8px;border:1px solid #ddd">{x['symbol']}</td>
+<td style="padding:3px 8px;border:1px solid #ddd">{x['name']}</td>
+<td style="padding:3px 8px;border:1px solid #ddd">{s_star} {x['scale_val']:.2f}亿</td>
+<td style="padding:3px 8px;border:1px solid #ddd">{f_star} {x['fee_val']:.2f}%</td>
+<td style="padding:3px 8px;border:1px solid #ddd">{x['total']:.2f}</td>
+</tr>""")
+
+        rating_html = f"""
+<hr>
+<h2>📋 基金评级排名</h2>
+<table style="border-collapse:collapse;width:100%;font-size:12px">
+<tr style="background:#f5f5f5">
+<th style="padding:4px 8px;border:1px solid #ddd;text-align:left">代码</th>
+<th style="padding:4px 8px;border:1px solid #ddd;text-align:left">名称</th>
+<th style="padding:4px 8px;border:1px solid #ddd;text-align:left">规模</th>
+<th style="padding:4px 8px;border:1px solid #ddd;text-align:left">总费率</th>
+<th style="padding:4px 8px;border:1px solid #ddd;text-align:left">总分</th>
+</tr>
+{''.join(rows_html)}
+</table>"""
+        print(f"  ✅ 基金评级排名完成")
+    except Exception as e:
+        print(f"  ⚠ 基金评级失败: {e}")
+
+    html = build_html_report(results) + ndx_html + rating_html
 
     if args.dry_run:
         print(f"\n{'='*40}")

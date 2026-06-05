@@ -162,8 +162,8 @@ def create_premium_figure(df: pd.DataFrame) -> plt.Figure:
     pr_max = pr.max()
     pr_min = pr.min()
     std = pr.std()
-    upper = mean + std
-    lower = mean - std
+    upper = min(mean + std, mean * 1.5)
+    lower = max(mean - std, 0)
 
     ax.axhspan(pr_max, upper, color="#ffcccc", alpha=0.3)
     ax.axhspan(upper, lower, color="#ccffcc", alpha=0.3)

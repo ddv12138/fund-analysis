@@ -55,20 +55,33 @@ def build_overview_html(info: dict) -> str:
     return f'<p style="font-size:12px;color:#666">{" | ".join(parts)}</p>'
 
 
-def build_html_report(results: list[dict]) -> str:
+def build_html_report(results: list[dict], ndx_html: str = "", rating_html: str = "") -> str:
     today = datetime.now().strftime("%Y-%m-%d")
-    parts = [f"<h2>📊 基金溢价率日报 ({today})</h2><hr>"]
+    parts = ["""<div style="max-width:700px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#333">"""]
+    parts.append(f'<h1 style="font-size:18px;text-align:center">📊 基金溢价率日报</h1>')
+    parts.append(f'<p style="text-align:center;color:#999;font-size:12px">{today}</p>')
+    parts.append("<hr>")
 
     for r in results:
-        parts.append(f"<h3>{r['name']}({r['symbol']})</h3>")
+        parts.append(f"<h3 style='font-size:14px;margin:16px 0 4px'>{r['name']}({r['symbol']})</h3>")
         parts.append(build_overview_html(r.get("overview", {})))
         parts.append(
-            f"<p>溢价率: {r['premium']:.2f}% {r['status']}</p>"
-            f"<p>合理区间: {r['lower_bound']:.2f}% ~ {r['upper_bound']:.2f}% "
-            f"(均值 {r['mean']:.2f}% - 标准差 {r['std']:.2f}%)</p>"
+            f'<p style="font-size:12px;line-height:1.6">'
+            f"溢价率: <b>{r['premium']:.2f}%</b> {r['status']}<br>"
+            f"合理区间: {r['lower_bound']:.2f}% ~ {r['upper_bound']:.2f}% "
+            f"（均值 {r['mean']:.2f}% · 标准差 {r['std']:.2f}%）</p>"
         )
-        parts.append(f'<img src="data:image/png;base64,{r["chart_base64"]}" style="max-width:100%"><hr>')
+        parts.append(f'<div style="text-align:center"><img src="data:image/png;base64,{r["chart_base64"]}" style="max-width:100%;display:inline-block"></div>')
+        parts.append("<hr>")
 
+    if ndx_html:
+        parts.append(f"""<h2 style="font-size:15px;text-align:center">🇺🇸 纳指100回撤分析 (.NDX)</h2>""")
+        parts.append(ndx_html)
+
+    if rating_html:
+        parts.append(rating_html)
+
+    parts.append("</div>")
     return "\n".join(parts)
 
 
@@ -192,11 +205,8 @@ def main():
             chart_b64 = fig_to_base64(fig)
             vix_line = f"VIX: {current_vix:.1f}（{vix_text}）" if current_vix is not None else "VIX: N/A"
             ndx_html = f"""
-<hr>
-<h2>🇺🇸 纳指100回撤分析 (.NDX)</h2>
-<p>距 ATH: {current_dd:.2f}% {status_text}</p>
-<p>{vix_line}</p>
-<img src="data:image/png;base64,{chart_b64}" style="max-width:100%">"""
+<p style="text-align:center;font-size:12px">距 ATH: {current_dd:.2f}% {status_text} ｜ {vix_line}</p>
+<div style="text-align:center"><img src="data:image/png;base64,{chart_b64}" style="max-width:100%;display:inline-block"></div>"""
             print(f"  ✅ 纳指100回撤分析完成")
     except Exception as e:
         print(f"  ⚠ 纳指100分析失败: {e}")
@@ -248,23 +258,25 @@ def main():
 </tr>""")
 
         rating_html = f"""
-<hr>
-<h2>📋 基金评级排名</h2>
-<table style="border-collapse:collapse;width:100%;font-size:12px">
+<h2 style="font-size:15px;text-align:center">📋 基金评级排名</h2>
+<div style="display:flex;justify-content:center">
+<table style="border-collapse:collapse;font-size:12px">
 <tr style="background:#f5f5f5">
-<th style="padding:4px 8px;border:1px solid #ddd;text-align:left">代码</th>
-<th style="padding:4px 8px;border:1px solid #ddd;text-align:left">名称</th>
-<th style="padding:4px 8px;border:1px solid #ddd;text-align:left">规模</th>
-<th style="padding:4px 8px;border:1px solid #ddd;text-align:left">总费率</th>
-<th style="padding:4px 8px;border:1px solid #ddd;text-align:left">总分</th>
+<th style="padding:4px 10px;border:1px solid #ddd;text-align:center">代码</th>
+<th style="padding:4px 10px;border:1px solid #ddd;text-align:left">名称</th>
+<th style="padding:4px 10px;border:1px solid #ddd;text-align:left">规模</th>
+<th style="padding:4px 10px;border:1px solid #ddd;text-align:left">总费率</th>
+<th style="padding:4px 10px;border:1px solid #ddd;text-align:center">总分</th>
 </tr>
 {''.join(rows_html)}
-</table>"""
+</table>
+</div>
+<hr>"""
         print(f"  ✅ 基金评级排名完成")
     except Exception as e:
         print(f"  ⚠ 基金评级失败: {e}")
 
-    html = build_html_report(results) + ndx_html + rating_html
+    html = build_html_report(results, ndx_html=ndx_html, rating_html=rating_html)
 
     if args.dry_run:
         print(f"\n{'='*40}")

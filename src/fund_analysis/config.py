@@ -3,7 +3,7 @@ import os
 import matplotlib as mpl
 
 PROJECT_ROOT = os.path.normpath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 )
 CACHE_DIR = os.path.join(PROJECT_ROOT, "fund_cache")
 

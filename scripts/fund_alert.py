@@ -23,8 +23,12 @@ import pandas as pd
 
 from fund_analysis.config import setup_matplotlib
 from fund_analysis.data.fund import get_fund_name, get_market_price, get_nav
+from fund_analysis.data.index import get_index_data
+from fund_analysis.data.us_stock import get_vix_data
 from fund_analysis.analysis.premium import calculate_premium, premium_status
+from fund_analysis.analysis.drawdown import calculate_drawdown, drawdown_status, vix_status
 from fund_analysis.plotting.premium_chart import create_premium_figure
+from fund_analysis.plotting.drawdown_chart import create_drawdown_figure
 from fund_analysis.utils.mail_utils import fig_to_base64, read_smtp_config_from_env, send_mail
 
 setup_matplotlib("Agg")
@@ -131,9 +135,43 @@ def main():
         print(f"\n{'='*40}")
         print("所有基金均无数据")
         print(f"{'='*40}")
-        return
 
-    html = build_html_report(results)
+    print(f"\n{'='*40}")
+    print("生成纳指100回撤分析")
+    print(f"{'='*40}")
+
+    ndx_html = ""
+    try:
+        end_dt = datetime.now().strftime("%Y%m%d")
+        start_dt = (datetime.now() - timedelta(days=365)).strftime("%Y%m%d")
+        ndx_df = get_index_data(".NDX", start_dt, end_dt)
+        if not ndx_df.empty:
+            ndx_df = ndx_df.sort_values("date").reset_index(drop=True)
+            dd_info = calculate_drawdown(ndx_df["close"])
+            ndx_df["回撤(%)"] = dd_info["回撤(%)"]
+            current_dd = (ndx_df["close"].iloc[-1] - ndx_df["high"].max()) / ndx_df["high"].max() * 100
+            status_text = drawdown_status(current_dd)
+            vix_df = get_vix_data(start_dt, end_dt)
+            if not vix_df.empty:
+                current_vix = float(vix_df["close"].iloc[-1])
+                vix_text = vix_status(current_vix)
+            else:
+                current_vix = None
+                vix_text = "N/A"
+            fig = create_drawdown_figure(ndx_df, ".NDX", vix_df=vix_df)
+            chart_b64 = fig_to_base64(fig)
+            vix_line = f"VIX: {current_vix:.1f}（{vix_text}）" if current_vix is not None else "VIX: N/A"
+            ndx_html = f"""
+<hr>
+<h2>🇺🇸 纳指100回撤分析 (.NDX)</h2>
+<p>距 ATH: {current_dd:.2f}% {status_text}</p>
+<p>{vix_line}</p>
+<img src="data:image/png;base64,{chart_b64}" style="max-width:100%">"""
+            print(f"  ✅ 纳指100回撤分析完成")
+    except Exception as e:
+        print(f"  ⚠ 纳指100分析失败: {e}")
+
+    html = build_html_report(results) + ndx_html
 
     if args.dry_run:
         print(f"\n{'='*40}")

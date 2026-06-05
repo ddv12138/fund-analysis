@@ -5,13 +5,13 @@ import pandas as pd
 from fund_analysis.plotting.style import HoverTool
 
 
-def show_drawdown_chart(df: pd.DataFrame, symbol: str, vix_df: pd.DataFrame | None = None, name: str = ""):
+def create_drawdown_figure(df: pd.DataFrame, symbol: str, vix_df: pd.DataFrame | None = None) -> plt.Figure:
     dates = df["date"]
     dd = df["回撤(%)"]
     latest_dd = dd.iloc[-1]
     close = df["close"]
 
-    fig, (ax, ax_vix) = plt.subplots(2, 1, figsize=(10, 6), sharex=True,
+    fig, (ax, ax_vix) = plt.subplots(2, 1, figsize=(10, 6), sharex=True, constrained_layout=True,
                                       gridspec_kw={"height_ratios": [3, 1], "hspace": 0.08})
 
     # ── Top: drawdown chart ──
@@ -23,13 +23,11 @@ def show_drawdown_chart(df: pd.DataFrame, symbol: str, vix_df: pd.DataFrame | No
     ax.text(dates.max(), latest_dd, f" 当前 {latest_dd:.2f}%",
             va="center", ha="left", fontsize=9, color="#d62728")
 
-    # Right axis: close price line
     ax_close = ax.twinx()
     ax_close.plot(dates, close, color="#1f77b4", linewidth=0.8, alpha=0.6)
-    ax_close.set_ylabel("收盘", color="#1f77b4", fontsize=9)
+    ax_close.set_ylabel("Close", color="#1f77b4", fontsize=9)
     ax_close.tick_params(axis="y", labelcolor="#1f77b4", labelsize=8)
 
-    # Right axis: latest VIX value (on a separate twinx for text)
     extra_labels = {}
     if vix_df is not None and not vix_df.empty:
         latest_vix = vix_df["close"].iloc[-1]
@@ -42,15 +40,14 @@ def show_drawdown_chart(df: pd.DataFrame, symbol: str, vix_df: pd.DataFrame | No
         aligned = pd.merge_asof(dates.to_frame("date"), vix_df, on="date", direction="backward")
         extra_labels["VIX"] = aligned["close"].values
 
-    extra_labels["收盘"] = close.values
+    extra_labels["Close"] = close.values
     ax.set_title(f"{symbol} Drawdown / Price / VIX", fontsize=8, fontweight="normal", pad=2, loc="left")
-    ax.set_ylabel("回撤(%)")
+    ax.set_ylabel("Drawdown (%)")
 
     # ── Bottom: VIX chart ──
     if vix_df is not None and not vix_df.empty:
         vix_dates = vix_df["date"]
         vix_close = vix_df["close"]
-
         vix_top = max(vix_close.max(), 40) * 1.15
 
         ax_vix.fill_between(vix_dates, 0, 20, color="#ccffcc", alpha=0.25)
@@ -61,9 +58,9 @@ def show_drawdown_chart(df: pd.DataFrame, symbol: str, vix_df: pd.DataFrame | No
         ax_vix.axhline(y=20, color="#2ca02c", linestyle=":", linewidth=0.5)
         ax_vix.axhline(y=30, color="#d62728", linestyle="--", linewidth=0.5)
 
-        ax_vix.text(vix_dates.max(), 20, " 正常", va="center", fontsize=7, color="#2ca02c")
-        ax_vix.text(vix_dates.max(), 30, " 恐慌", va="center", fontsize=7, color="#d62728")
-        ax_vix.text(vix_dates.max(), vix_top * 0.92, " 极度恐慌", va="center", fontsize=7, color="#d62728")
+        ax_vix.text(vix_dates.max(), 20, " Normal", va="center", fontsize=7, color="#2ca02c")
+        ax_vix.text(vix_dates.max(), 30, " Fear", va="center", fontsize=7, color="#d62728")
+        ax_vix.text(vix_dates.max(), vix_top * 0.92, " Extreme Fear", va="center", fontsize=7, color="#d62728")
 
         ax_vix.set_ylabel("VIX", color="#ff7f0e", fontsize=9)
         ax_vix.tick_params(axis="y", labelcolor="#ff7f0e", labelsize=8)
@@ -83,6 +80,11 @@ def show_drawdown_chart(df: pd.DataFrame, symbol: str, vix_df: pd.DataFrame | No
     locator = mdates.AutoDateLocator()
     ax_vix.xaxis.set_major_locator(locator)
     ax_vix.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
-    plt.tight_layout()
+
+    return fig
+
+
+def show_drawdown_chart(df: pd.DataFrame, symbol: str, vix_df: pd.DataFrame | None = None, name: str = ""):
+    fig = create_drawdown_figure(df, symbol, vix_df=vix_df)
     plt.show()
     plt.close()

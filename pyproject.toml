@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fund-analysis"
+version = "0.1.0"
+description = "场内金融工具 - 基金溢价率分析、美股指数行情、邮件日报"
+
+[tool.setuptools.packages.find]
+where = ["src"]

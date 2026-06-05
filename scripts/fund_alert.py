@@ -10,54 +10,24 @@
     export SMTP_USER=xxx@qq.com
     export SMTP_PASS=授权码
     export MAIL_TO=xxx@qq.com,yyy@qq.com
-    python fund_alert.py                         # 正常执行
-    python fund_alert.py --dry-run               # 仅打印，不推送
+    python scripts/fund_alert.py                         # 正常执行
+    python scripts/fund_alert.py --dry-run               # 仅打印，不推送
 """
 
 import argparse
-import io
 import os
-import smtplib
-import ssl
 import sys
 from datetime import datetime, timedelta
-from email.mime.image import MIMEImage
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
-import matplotlib
-matplotlib.use("Agg")
-
-import matplotlib.pyplot as plt
 import pandas as pd
 
-from fund_premium_analyzer import (
-    get_fund_name,
-    get_market_price,
-    get_nav,
-    calculate_premium,
-    create_premium_figure,
-)
+from fund_analysis.config import setup_matplotlib
+from fund_analysis.data.fund import get_fund_name, get_market_price, get_nav
+from fund_analysis.analysis.premium import calculate_premium, premium_status
+from fund_analysis.plotting.premium_chart import create_premium_figure
+from fund_analysis.utils.mail_utils import fig_to_base64, read_smtp_config_from_env, send_mail
 
-
-def premium_status(premium: float, mean: float, std: float) -> str:
-    upper = min(mean + std, mean * 1.5)
-    lower = max(mean - std, 0)
-    if premium < lower:
-        return "✅ 低估区间"
-    elif premium > upper:
-        return "❌ 溢价偏高"
-    else:
-        return "✅ 适合买入(均值±σ)"
-
-
-def fig_to_base64(fig: plt.Figure) -> str:
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
-    plt.close(fig)
-    buf.seek(0)
-    import base64
-    return base64.b64encode(buf.read()).decode()
+setup_matplotlib("Agg")
 
 
 def build_html_report(results: list[dict]) -> str:
@@ -76,19 +46,6 @@ def build_html_report(results: list[dict]) -> str:
     return "\n".join(parts)
 
 
-def send_mail(smtp_config: dict, recipients: list[str], html: str):
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"📊 基金溢价率日报 ({datetime.now().strftime('%Y-%m-%d')})"
-    msg["From"] = smtp_config["user"]
-    msg["To"] = ", ".join(recipients)
-    msg.attach(MIMEText(html, "html", "utf-8"))
-
-    ctx = ssl.create_default_context()
-    with smtplib.SMTP_SSL(smtp_config["host"], smtp_config["port"], context=ctx) as server:
-        server.login(smtp_config["user"], smtp_config["pass"])
-        server.sendmail(smtp_config["user"], recipients, msg.as_string())
-
-
 def main():
     parser = argparse.ArgumentParser(description="基金溢价率监控告警")
     parser.add_argument("--dry-run", action="store_true", help="仅打印结果，不推送通知")
@@ -99,12 +56,7 @@ def main():
     mail_to_str = os.environ.get("MAIL_TO", "")
     recipients = [r.strip() for r in mail_to_str.split(",") if r.strip()]
 
-    smtp_config = {
-        "host": os.environ.get("SMTP_HOST", "smtp.qq.com"),
-        "port": int(os.environ.get("SMTP_PORT", "465")),
-        "user": os.environ.get("SMTP_USER", ""),
-        "pass": os.environ.get("SMTP_PASS", ""),
-    }
+    smtp_config = read_smtp_config_from_env()
 
     if not symbols:
         print("❌ 未配置 FUND_SYMBOLS 环境变量")
@@ -205,7 +157,8 @@ def main():
     print(f"{'='*40}")
 
     try:
-        send_mail(smtp_config, recipients, html)
+        subject = f"📊 基金溢价率日报 ({datetime.now().strftime('%Y-%m-%d')})"
+        send_mail(subject, smtp_config, recipients, html)
         print(f"  ✅ 发送成功")
     except Exception as e:
         print(f"  ❌ 发送失败: {e}")

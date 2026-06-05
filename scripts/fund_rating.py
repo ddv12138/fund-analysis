@@ -21,6 +21,13 @@ def _visual_len(s: str) -> int:
 def _pad(s: str, width: int) -> str:
     return s + ' ' * max(0, width - _visual_len(s))
 
+
+_STARS = ["", "★☆☆☆☆", "★★☆☆☆", "★★★☆☆", "★★★★☆", "★★★★★"]
+
+
+def _star(score: int) -> str:
+    return _STARS[score] if 1 <= score <= 5 else ""
+
 import pandas as pd
 
 from fund_analysis.data.fund import get_fund_name, get_fund_overview, get_market_price, get_nav
@@ -125,8 +132,8 @@ def main():
             return f"{parts[0]}-{parts[1]}"
         return s[:7]
 
-    cols_def = [("代码", 8), ("名称", 14), ("规模", 18), ("总费率", 14),
-                ("成立", 14), ("溢价率", 10), ("溢价状态", 16), ("总分", 6)]
+    cols_def = [("代码", 8), ("名称", 14), ("规模", 22), ("总费率", 18),
+                ("成立", 18), ("溢价率", 10), ("溢价状态", 16), ("总分", 6)]
 
     header_line = "  ".join(_pad(h, w) for h, w in cols_def)
     sep = "  ".join(_pad("", w).replace(" ", "-") for _, w in cols_def)
@@ -147,9 +154,9 @@ def main():
         row = [
             r["symbol"],
             r["name"],
-            f"{r['scale_val']:.2f}亿 {r['scale_score']}/5",
-            f"{r['fee_val']:.2f}% {r['fee_score']}/5",
-            f"{_est_short(r['est_str'])} {r['est_score']}/5",
+            f"{_star(r['scale_score'])} {r['scale_val']:.2f}亿",
+            f"{_star(r['fee_score'])} {r['fee_val']:.2f}%",
+            f"{_star(r['est_score'])} {_est_short(r['est_str'])}",
             f"{r['premium']:.2f}%",
             status,
             f"{r['total']:.2f}",

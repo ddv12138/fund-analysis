@@ -14,6 +14,7 @@ import sys
 from datetime import datetime, timedelta
 
 import pandas as pd
+from tabulate import tabulate
 
 from fund_analysis.data.fund import get_fund_name, get_fund_overview, get_market_price, get_nav
 from fund_analysis.analysis.premium import calculate_premium
@@ -111,14 +112,15 @@ def main():
     records.sort(key=lambda r: r["total"], reverse=True)
 
     # 输出表格
-    print(f"\n{'代码':<8} {'名称':<14} {'规模':<20} {'总费率':<16} {'成立':<14} {'溢价率':<8} {'溢价状态':<14} {'总分'}")
-    print("-" * 90)
+    def _est_short(s: str) -> str:
+        parts = s.replace("年", "-").replace("月", "-").replace("日", "").split("-")
+        if len(parts) >= 2:
+            return f"{parts[0]}-{parts[1]}"
+        return s[:7]
+
+    headers = ["代码", "名称", "规模", "总费率", "成立", "溢价率", "溢价状态", "总分"]
+    rows = []
     for r in records:
-        scale_text = f"{r['scale_val']:.2f}亿 {r['scale_score']}/5"
-        fee_display = f"{r['fee_val']:.2f}% {r['fee_score']}/5"
-        est_short = r["est_str"][:11] if len(r["est_str"]) >= 11 else r["est_str"]
-        est_text = f"{est_short} {r['est_score']}/5"
-        pr = r["premium"]
         if r["premium_score"] == 5:
             status = "✅ 深度折价"
         elif r["premium_score"] == 4:
@@ -129,7 +131,18 @@ def main():
             status = "🟡 轻度溢价"
         else:
             status = "🔴 溢价偏高"
-        print(f"{r['symbol']:<8} {r['name']:<14} {scale_text:<20} {fee_display:<16} {est_text:<14} {pr:<8.2f} {status:<14} {r['total']:.2f}")
+        rows.append([
+            r["symbol"],
+            r["name"],
+            f"{r['scale_val']:.2f}亿 {r['scale_score']}/5",
+            f"{r['fee_val']:.2f}% {r['fee_score']}/5",
+            f"{_est_short(r['est_str'])} {r['est_score']}/5",
+            f"{r['premium']:.2f}%",
+            status,
+            f"{r['total']:.2f}",
+        ])
+    print()
+    print(tabulate(rows, headers=headers, tablefmt="plain", stralign="left"))
 
 
 if __name__ == "__main__":

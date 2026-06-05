@@ -73,7 +73,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="仅打印结果，不推送通知")
     args = parser.parse_args()
 
-    symbols_str = os.environ.get("FUND_SYMBOLS", "513870")
+    symbols_str = os.environ.get("FUND_SYMBOLS", "513100,159660,159501,159941,159509,513300,513870,159696")
     symbols = [s.strip() for s in symbols_str.split(",") if s.strip()]
     mail_to_str = os.environ.get("MAIL_TO", "")
     recipients = [r.strip() for r in mail_to_str.split(",") if r.strip()]

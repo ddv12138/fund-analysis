@@ -60,7 +60,7 @@ python fund_alert.py --dry-run                       # 仅打印，不推送
 
 ## GitHub Actions 定时任务
 
-每天早上 9:30（北京时间，周一至周五）自动执行 `fund_alert.py`，检查各基金最新溢价率并推送邮件日报（含溢价率趋势图），每条基金附带买入区间建议。
+每天早上 08:30（北京时间，周一至周五）自动执行 `fund_alert.py`，检查各基金最新溢价率并推送邮件日报（含溢价率趋势图），每条基金附带买入区间建议。
 
 | 配置项 | 位置 | 说明 |
 |--------|------|------|
@@ -70,8 +70,43 @@ python fund_alert.py --dry-run                       # 仅打印，不推送
 | `SMTP_USER` | GitHub > Settings > Secrets > Actions | 发件邮箱地址 |
 | `SMTP_PASS` | GitHub > Settings > Secrets > Actions | SMTP 授权码（QQ 邮箱需生成授权码） |
 | `MAIL_TO` | GitHub > Settings > Secrets > Actions | 收件邮箱，多个用逗号分隔 |
+| `CRON_TRIGGER_TOKEN` | GitHub > Settings > Secrets > Actions | 用于外部 cron 触发 workflow 的 GitHub Token |
 
 执行后自动将 `fund_cache/` 中的缓存数据 commit 回仓库，避免重复拉取。
+
+### 外部定时触发（确保准时执行）
+
+GitHub Actions 内置 `schedule`（cron）为尽力执行，高峰期可能延迟。
+通过 cron-job.org 外部定时调用 API 触发 workflow，确保 08:30 准时执行。
+
+**配置步骤：**
+
+1. **创建 GitHub Token**
+   → Settings → Developer settings → Personal access tokens → Fine-grained tokens
+   - 仓库：仅 `ddv12138/fund-analysis`
+   - 权限：`Actions: write`
+   - 生成后设为 Actions Secret → 名称 `CRON_TRIGGER_TOKEN`
+
+2. **配置 cron-job.org**
+   - 注册 https://cron-job.org（免费）
+   - 新建任务，注意时区设置：
+
+     | 配置项 | 值 |
+     |--------|-----|
+     | URL | `https://api.github.com/repos/ddv12138/fund-analysis/actions/workflows/daily_check.yml/dispatches` |
+     | Method | `POST` |
+     | Header | `Authorization: Bearer <CRON_TRIGGER_TOKEN>` |
+     | Header | `Accept: application/vnd.github+json` |
+     | Body | `{"ref":"main"}` |
+     | Schedule | `30 08 * * 1-5` |
+     | Timezone | **`Asia/Shanghai`**（在任务设置中修改，非默认 UTC） |
+
+     关键：cron-job.org 默认使用 UTC，务必在任务设置中将时区改为 `Asia/Shanghai`，
+     cron 表达式 `30 08 * * 1-5` 才是北京时间 08:30。若不改时区，
+     需将 cron 改为 `30 0 * * 1-5`（UTC 00:30 = BJT 08:30）。
+
+3. **兜底**
+   保留 GitHub 内置 `schedule`（cron: `30 0 * * 1-5`），即使外部服务异常仍会尝试执行。
 
 ## Agent 注意事项
 

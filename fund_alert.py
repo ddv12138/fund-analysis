@@ -68,7 +68,7 @@ def build_html_report(results: list[dict]) -> str:
         parts.append(f"<h3>{r['name']}({r['symbol']})</h3>")
         parts.append(
             f"<p>溢价率: {r['premium']:.2f}% {r['status']}</p>"
-            f"<p>买入区间: &lt; {r['buy_threshold']:.2f}% "
+            f"<p>合理区间: {r['lower_bound']:.2f}% ~ {r['upper_bound']:.2f}% "
             f"(均值 {r['mean']:.2f}% - 标准差 {r['std']:.2f}%)</p>"
         )
         parts.append(f'<img src="data:image/png;base64,{r["chart_base64"]}" style="max-width:100%"><hr>')
@@ -147,7 +147,8 @@ def main():
             pr = df["溢价率(%)"]
             mean = pr.mean()
             std = pr.std()
-            buy_threshold = mean - std
+            lower_bound = max(mean - std, 0)
+            upper_bound = min(mean + std, mean * 1.5)
             status = premium_status(latest_premium, mean, std)
 
             fig = create_premium_figure(df)
@@ -155,7 +156,7 @@ def main():
 
             print(f"  最新溢价率: {latest_premium:.3f}%")
             print(f"  均值: {mean:.3f}%  |  标准差: {std:.3f}%")
-            print(f"  买入区间: < {buy_threshold:.3f}%")
+            print(f"  合理区间: {lower_bound:.3f}% ~ {upper_bound:.3f}%")
             print(f"  状态: {status}")
 
             results.append({
@@ -164,7 +165,8 @@ def main():
                 "premium": latest_premium,
                 "mean": mean,
                 "std": std,
-                "buy_threshold": buy_threshold,
+                "lower_bound": lower_bound,
+                "upper_bound": upper_bound,
                 "status": status,
                 "chart_base64": chart_b64,
             })
@@ -187,6 +189,7 @@ def main():
         print(f"{'='*40}")
         for r in results:
             print(f"  {r['name']}({r['symbol']}) 溢价率 {r['premium']:.2f}% {r['status']}")
+            print(f"  合理区间: {r['lower_bound']:.2f}% ~ {r['upper_bound']:.2f}%")
         return
 
     if not smtp_config["user"] or not smtp_config["pass"]:

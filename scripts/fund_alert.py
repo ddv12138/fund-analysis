@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 
 from fund_analysis.config import setup_matplotlib
-from fund_analysis.data.fund import get_fund_name, get_market_price, get_nav
+from fund_analysis.data.fund import get_fund_name, get_fund_overview, get_market_price, get_nav
 from fund_analysis.data.index import get_index_data
 from fund_analysis.data.us_stock import get_vix_data
 from fund_analysis.analysis.premium import calculate_premium, premium_status
@@ -34,12 +34,30 @@ from fund_analysis.utils.mail_utils import fig_to_base64, read_smtp_config_from_
 setup_matplotlib("Agg")
 
 
+def build_overview_html(info: dict) -> str:
+    if not info:
+        return ""
+    mgmt = info.get("管理费率", "")
+    trustee = info.get("托管费率", "")
+    scale = info.get("净资产规模", "")
+    est = info.get("成立日期/规模", "").split(" / ")[0] if " / " in str(info.get("成立日期/规模", "")) else info.get("成立日期/规模", "")
+    parts = [f"管理费 {mgmt}"]
+    if trustee:
+        parts.append(f"托管费 {trustee}")
+    if scale:
+        parts.append(f"净资产 {scale}")
+    if est:
+        parts.append(f"成立 {est}")
+    return f'<p style="font-size:12px;color:#666">{" | ".join(parts)}</p>'
+
+
 def build_html_report(results: list[dict]) -> str:
     today = datetime.now().strftime("%Y-%m-%d")
     parts = [f"<h2>📊 基金溢价率日报 ({today})</h2><hr>"]
 
     for r in results:
         parts.append(f"<h3>{r['name']}({r['symbol']})</h3>")
+        parts.append(build_overview_html(r.get("overview", {})))
         parts.append(
             f"<p>溢价率: {r['premium']:.2f}% {r['status']}</p>"
             f"<p>合理区间: {r['lower_bound']:.2f}% ~ {r['upper_bound']:.2f}% "
@@ -83,6 +101,13 @@ def main():
             name = get_fund_name(symbol)
             print(f"基金名称: {name}")
 
+            overview = get_fund_overview(symbol)
+            if overview:
+                mgmt = overview.get("管理费率", "")
+                scale = overview.get("净资产规模", "")
+                est = str(overview.get("成立日期/规模", "")).split(" / ")[0] if " / " in str(overview.get("成立日期/规模", "")) else overview.get("成立日期/规模", "")
+                print(f"  概览: 管理费 {mgmt} | 规模 {scale} | 成立 {est}")
+
             market = get_market_price(symbol, start_date, end_date)
             if market.empty:
                 print(f"  ⚠ 无市场价数据，跳过")
@@ -125,6 +150,7 @@ def main():
                 "upper_bound": upper_bound,
                 "status": status,
                 "chart_base64": chart_b64,
+                "overview": overview,
             })
 
         except Exception as e:

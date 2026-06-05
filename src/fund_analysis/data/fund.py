@@ -92,3 +92,28 @@ def get_nav(symbol: str) -> pd.DataFrame:
     print(f"  [网络] 净值已缓存 {len(df)} 条")
 
     return df
+
+
+def get_fund_overview(symbol: str) -> dict:
+    cache_file = os.path.join(CACHE_DIR, f"fund_{symbol}_overview.csv")
+
+    if os.path.exists(cache_file):
+        mtime = os.path.getmtime(cache_file)
+        if (pd.Timestamp.now() - pd.Timestamp.fromtimestamp(mtime)).days < 1:
+            df = pd.read_csv(cache_file)
+            if not df.empty:
+                print(f"  [缓存] 基金概览")
+                return df.iloc[0].to_dict()
+
+    df = ak.fund_overview_em(symbol)
+    key_cols = ["基金代码", "基金简称", "基金类型", "发行日期", "成立日期/规模",
+                "净资产规模", "份额规模", "管理费率", "托管费率", "销售服务费率",
+                "最高认购费率", "最高申购费率", "最高赎回费率", "基金管理人", "基金经理人", "跟踪标的"]
+    keep = [c for c in key_cols if c in df.columns]
+    df = df[keep].copy()
+
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    df.to_csv(cache_file, index=False)
+    print(f"  [网络] 基金概览已缓存")
+
+    return df.iloc[0].to_dict() if not df.empty else {}

@@ -43,14 +43,14 @@ def show_chart(df, symbol: str):
     ax.axhline(y=latest, color="#d62728", linestyle="--", linewidth=0.6)
     ax.text(dates.max(), latest, f" 当前 {latest:.0f}", va="center", ha="left", fontsize=9, color="#d62728")
 
-    HoverTool(fig, ax, dates, close.values,
-              fmt_func=lambda x, y: f"{x.strftime('%Y-%m-%d')}  {y:.0f}")
+    _ = HoverTool(fig, ax, dates, close.values,
+                  fmt_func=lambda x, y: f"{x.strftime('%Y-%m-%d')}  {y:.0f}")
 
     ax.grid(True, alpha=0.2)
     ax.set_xlim(dates.min(), dates.max())
     locator = mdates.AutoDateLocator()
     ax.xaxis.set_major_locator(locator)
-    ax.xaxis.set_major_formatter(mdates.AutoDateFormatter(locator))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     ax.tick_params(axis="x", rotation=45)
     plt.tight_layout()
     plt.show()

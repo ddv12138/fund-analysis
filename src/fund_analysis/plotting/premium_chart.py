@@ -57,7 +57,7 @@ def show_chart(df, symbol: str):
     dates = df["日期"]
     mean = pr.mean()
     fig = create_premium_figure(df)
-    HoverTool(fig, fig.axes[0], dates, pr.values)
+    _ = HoverTool(fig, fig.axes[0], dates, pr.values)
     plt.show()
     plt.close()
     print(f"  均值: {mean:.2f}%  |  溢价率范围: {pr.min():.2f}% ~ {pr.max():.2f}%")

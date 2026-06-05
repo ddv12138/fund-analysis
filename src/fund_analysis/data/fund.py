@@ -79,11 +79,9 @@ def get_nav(symbol: str) -> pd.DataFrame:
 
     if os.path.exists(cache_file):
         cached = pd.read_csv(cache_file, parse_dates=["日期"])
-        if not cached.empty:
-            mtime = os.path.getmtime(cache_file)
-            if (pd.Timestamp.now() - pd.Timestamp.fromtimestamp(mtime)).days <= 3:
-                print(f"  [缓存] 净值 {len(cached)} 条")
-                return cached
+        if not cached.empty and cached["日期"].max() >= pd.Timestamp.now() - pd.Timedelta(days=3):
+            print(f"  [缓存] 净值 {len(cached)} 条")
+            return cached
 
     df = ak.fund_open_fund_info_em(symbol=symbol, indicator="单位净值走势")
     df = df.rename(columns={"净值日期": "日期"})

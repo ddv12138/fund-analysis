@@ -13,8 +13,15 @@ import os
 import sys
 from datetime import datetime, timedelta
 
+
+def _visual_len(s: str) -> int:
+    return sum(2 if ord(c) > 0x2e80 else 1 for c in s)
+
+
+def _pad(s: str, width: int) -> str:
+    return s + ' ' * max(0, width - _visual_len(s))
+
 import pandas as pd
-from tabulate import tabulate
 
 from fund_analysis.data.fund import get_fund_name, get_fund_overview, get_market_price, get_nav
 from fund_analysis.analysis.premium import calculate_premium
@@ -118,8 +125,13 @@ def main():
             return f"{parts[0]}-{parts[1]}"
         return s[:7]
 
-    headers = ["代码", "名称", "规模", "总费率", "成立", "溢价率", "溢价状态", "总分"]
-    rows = []
+    cols_def = [("代码", 8), ("名称", 14), ("规模", 18), ("总费率", 14),
+                ("成立", 14), ("溢价率", 10), ("溢价状态", 16), ("总分", 6)]
+
+    header_line = "  ".join(_pad(h, w) for h, w in cols_def)
+    sep = "  ".join(_pad("", w).replace(" ", "-") for _, w in cols_def)
+    print(f"\n{header_line}\n{sep}")
+
     for r in records:
         if r["premium_score"] == 5:
             status = "✅ 深度折价"
@@ -131,7 +143,8 @@ def main():
             status = "🟡 轻度溢价"
         else:
             status = "🔴 溢价偏高"
-        rows.append([
+
+        row = [
             r["symbol"],
             r["name"],
             f"{r['scale_val']:.2f}亿 {r['scale_score']}/5",
@@ -140,9 +153,8 @@ def main():
             f"{r['premium']:.2f}%",
             status,
             f"{r['total']:.2f}",
-        ])
-    print()
-    print(tabulate(rows, headers=headers, tablefmt="plain", stralign="left"))
+        ]
+        print("  ".join(_pad(c, w) for c, w in zip(row, [w for _, w in cols_def])))
 
 
 if __name__ == "__main__":

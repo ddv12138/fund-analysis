@@ -22,14 +22,13 @@ jobs:
       - name: 安装中文字体
         run: sudo apt-get install -y fonts-noto-cjk
 
-      - run: pip install akshare pandas matplotlib numpy
+      - run: pip install akshare pandas matplotlib numpy yfinance
       - run: pip install -e .
 
       - name: 检查溢价率并推送通知
         run: python scripts/fund_alert.py
         env:
           FUND_SYMBOLS: ${{ vars.FUND_SYMBOLS }}
-          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}

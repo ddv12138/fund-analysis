@@ -1,5 +1,4 @@
 import os
-import time
 
 import akshare as ak
 import pandas as pd
@@ -46,37 +45,26 @@ def get_vix_data(start_date: str, end_date: str) -> pd.DataFrame:
                 print(f"  [缓存] VIX {len(df)} 条")
                 return df.reset_index(drop=True)
 
-    import requests
-    api_key = os.environ.get("FRED_API_KEY")
-    if not api_key:
-        print("  ⚠ 环境变量 FRED_API_KEY 未设置")
-        return pd.DataFrame(columns=["date", "close"])
-
-    time.sleep(1)
-    url = "https://api.stlouisfed.org/fred/series/observations"
-
-    if cached_all is not None and not cached_all.empty:
-        need_start = (cached_all["date"].max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-    else:
-        need_start = start_dt.strftime("%Y-%m-%d")
+    import yfinance as yf
+    need_start = (
+        (cached_all["date"].max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+        if cached_all is not None and not cached_all.empty
+        else start_dt.strftime("%Y-%m-%d")
+    )
     need_end = end_dt.strftime("%Y-%m-%d")
 
-    params = {
-        "series_id": "VIXCLS",
-        "api_key": api_key,
-        "file_type": "json",
-        "observation_start": need_start,
-        "observation_end": need_end,
-    }
     try:
-        resp = requests.get(url, params=params, timeout=15)
-        resp.raise_for_status()
-        data = resp.json().get("observations", [])
+        vix = yf.download("^VIX", start=need_start, end=need_end, progress=False)
     except Exception as e:
         print(f"  ⚠ VIX 获取失败: {e}")
+        if cached_all is not None:
+            df = cached_all[(cached_all["date"] >= start_dt) & (cached_all["date"] <= end_dt)]
+            if not df.empty:
+                print(f"  [缓存] VIX {len(df)} 条（回退缓存）")
+                return df.reset_index(drop=True)
         return pd.DataFrame(columns=["date", "close"])
 
-    if not data:
+    if vix.empty:
         if cached_all is not None:
             df = cached_all[(cached_all["date"] >= start_dt) & (cached_all["date"] <= end_dt)]
             if not df.empty:
@@ -85,11 +73,9 @@ def get_vix_data(start_date: str, end_date: str) -> pd.DataFrame:
         print("  ⚠ VIX 暂无数据")
         return pd.DataFrame(columns=["date", "close"])
 
-    new_df = pd.DataFrame(data)
-    new_df = new_df[new_df["value"] != "."].copy()
-    new_df["date"] = pd.to_datetime(new_df["date"])
-    new_df["close"] = new_df["value"].astype(float)
-    new_df = new_df[["date", "close"]].reset_index(drop=True)
+    new_df = vix.reset_index()
+    new_df.columns = new_df.columns.map(lambda c: c[0] if isinstance(c, tuple) else c)
+    new_df = new_df[["Date", "Close"]].rename(columns={"Date": "date", "Close": "close"})
 
     if cached_all is not None and not cached_all.empty:
         merged = pd.concat([cached_all, new_df], ignore_index=True)

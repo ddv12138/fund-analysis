@@ -6,7 +6,7 @@
 conda activate fund-analysis
 ```
 
-Python 3.10，依赖：akshare、pandas、matplotlib、numpy
+Python 3.10，依赖：akshare、pandas、matplotlib、numpy、scipy
 
 ## 文件清单
 
@@ -16,7 +16,7 @@ Python 3.10，依赖：akshare、pandas、matplotlib、numpy
 | `src/fund_analysis/config.py` | 缓存路径、matplotlib 配置、常量 |
 | `src/fund_analysis/data/` | 数据获取层（基金/指数/US股票/VIX API + 缓存） |
 | `src/fund_analysis/data/fund.py` | 基金市场价/净值获取（新浪+东财） |
-| `src/fund_analysis/data/index.py` | 美股指数获取（新浪） |
+| `src/fund_analysis/data/index.py` | 美股/A股指数获取（新浪 + akshare） |
 | `src/fund_analysis/data/us_stock.py` | 美股 ETF/个股获取（新浪），VIX 获取（Yahoo Finance ^VIX） |
 | `src/fund_analysis/analysis/` | 业务分析层 |
 | `src/fund_analysis/analysis/premium.py` | 溢价率计算 |
@@ -35,6 +35,7 @@ Python 3.10，依赖：akshare、pandas、matplotlib、numpy
 - 场内基金市场价 → 新浪财经 `fund_etf_hist_sina`
 - 场内基金净值 → 东方财富 `fund_open_fund_info_em`
 - 美股指数 → 新浪财经 `index_us_stock_sina`（代码：.NDX/.INX/.IXIC/.DJI）
+- A 股指数 → akshare `stock_zh_index_daily`（代码：sh000001/sh000300/sz399001/sz399006）
 - 美股 ETF/个股 → 新浪财经 `stock_us_daily`（代码：QQQM/SPY/VOO 等）
 - VIX → Yahoo Finance (^VIX)
 
@@ -74,6 +75,11 @@ python scripts/us_index_compare.py                           # 默认 513100 vs 
 python scripts/us_index_compare.py 180                       # 默认 513100 近 180 天
 python scripts/us_index_compare.py 365 513100 513500         # 两个基金
 python scripts/us_index_compare.py 180 513500 --no-chart     # 仅打印表格
+
+# 指数相关性分析（A股 vs 美股）
+python scripts/index_correlation.py                          # 默认 上证 vs 纳指 近 365 天
+python scripts/index_correlation.py sh000001 .INX 180        # 上证 vs 标普 近 180 天
+python scripts/index_correlation.py --chart                  # 含图表
 
 # 基金评级（多维度排名评分）
 python scripts/fund_rating.py                                # 默认 FUND_SYMBOLS

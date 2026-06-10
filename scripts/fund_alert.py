@@ -62,6 +62,10 @@ def build_html_report(results: list[dict], ndx_html: str = "", rating_html: str 
     parts.append(f'<p style="text-align:center;color:#999;font-size:12px">{today}</p>')
     parts.append("<hr>")
 
+    if ndx_html:
+        parts.append(f"""<h2 style="font-size:15px;text-align:center">🇺🇸 纳指100回撤分析 (.NDX)</h2>""")
+        parts.append(ndx_html)
+
     for r in results:
         parts.append(f"<h3 style='font-size:14px;margin:16px 0 4px'>{r['name']}({r['symbol']})</h3>")
         parts.append(build_overview_html(r.get("overview", {})))
@@ -73,10 +77,6 @@ def build_html_report(results: list[dict], ndx_html: str = "", rating_html: str 
         )
         parts.append(f'<div style="text-align:center"><img src="data:image/png;base64,{r["chart_base64"]}" style="max-width:100%;display:inline-block"></div>')
         parts.append("<hr>")
-
-    if ndx_html:
-        parts.append(f"""<h2 style="font-size:15px;text-align:center">🇺🇸 纳指100回撤分析 (.NDX)</h2>""")
-        parts.append(ndx_html)
 
     if rating_html:
         parts.append(rating_html)
@@ -248,12 +248,16 @@ def main():
         rows_html = []
         for x in rating_records:
             s_star = "★" * x["scale_score"] + "☆" * (5 - x["scale_score"])
+            e_star = "★" * x["est_score"] + "☆" * (5 - x["est_score"])
             f_star = "★" * x["fee_score"] + "☆" * (5 - x["fee_score"])
+            p_star = "★" * x["premium_score"] + "☆" * (5 - x["premium_score"])
             rows_html.append(f"""<tr>
 <td style="padding:3px 8px;border:1px solid #ddd">{x['symbol']}</td>
 <td style="padding:3px 8px;border:1px solid #ddd">{x['name']}</td>
 <td style="padding:3px 8px;border:1px solid #ddd">{s_star} {x['scale_val']:.2f}亿</td>
+<td style="padding:3px 8px;border:1px solid #ddd">{e_star} {x['est_str']}</td>
 <td style="padding:3px 8px;border:1px solid #ddd">{f_star} {x['fee_val']:.2f}%</td>
+<td style="padding:3px 8px;border:1px solid #ddd">{p_star} {x['premium']:.2f}%</td>
 <td style="padding:3px 8px;border:1px solid #ddd">{x['total']:.2f}</td>
 </tr>""")
 
@@ -265,7 +269,9 @@ def main():
 <th style="padding:4px 10px;border:1px solid #ddd;text-align:center">代码</th>
 <th style="padding:4px 10px;border:1px solid #ddd;text-align:left">名称</th>
 <th style="padding:4px 10px;border:1px solid #ddd;text-align:left">规模</th>
+<th style="padding:4px 10px;border:1px solid #ddd;text-align:left">成立时间</th>
 <th style="padding:4px 10px;border:1px solid #ddd;text-align:left">总费率</th>
+<th style="padding:4px 10px;border:1px solid #ddd;text-align:left">溢价偏离</th>
 <th style="padding:4px 10px;border:1px solid #ddd;text-align:center">总分</th>
 </tr>
 {''.join(rows_html)}

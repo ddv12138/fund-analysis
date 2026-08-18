@@ -4,3 +4,10 @@ fund_cache/
 *.egg-info/
 .DS_Store
 company-analysis/
+.venv/
+.env
+.env.*
+!.env.example
+
+# 本地 skill，不提交
+.agents/skills/ddvudo-market-data/

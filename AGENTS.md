@@ -2,11 +2,21 @@
 
 ## 环境
 
+项目使用 uv 管理 Python 3.10 环境。
+
+首次安装依赖（在项目根目录执行）：
+
 ```bash
-conda activate fund-analysis
+uv sync
 ```
 
-Python 3.10，依赖：akshare、pandas、matplotlib、numpy、scipy
+日常运行脚本：
+
+```bash
+uv run python scripts/xxx.py
+```
+
+依赖：akshare、pandas、matplotlib、numpy、scipy、requests、yfinance
 
 ## 文件清单
 
